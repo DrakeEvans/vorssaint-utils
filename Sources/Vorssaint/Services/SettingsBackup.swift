@@ -137,12 +137,14 @@ enum SettingsBackup {
     /// `--export-settings FILE` and `--import-settings FILE`, for scripts and
     /// dotfiles. Runs before the app starts, so no menu bar item or window
     /// appears.
-    static func runCommandIfRequestedAndExit() {
-        guard let command = SettingsBackupSupport.command(in: CommandLine.arguments) else { return }
+    static func runCommandAndExit(_ command: SettingsBackupSupport.Command) -> Never {
         switch command {
+        case .conflictingFlags:
+            failCommand("use exactly one settings backup flag")
         case .missingFile(let flag):
             failCommand("\(flag) needs a file path")
         case .export(let path):
+            Defaults.register()
             guard write(to: URL(fileURLWithPath: path)) else { failCommand("could not save \(path)") }
             print("SETTINGS: exported to \(path)")
         case .import(let path):
@@ -157,6 +159,7 @@ enum SettingsBackup {
             guard let settings = readSettings(at: URL(fileURLWithPath: path)) else {
                 failCommand("\(path) is not a valid Vorssaint backup")
             }
+            Defaults.register()
             apply(settings: settings)
             // The process exits next; make sure the writes reach the store.
             UserDefaults.standard.synchronize()
